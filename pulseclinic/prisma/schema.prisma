@@ -1,0 +1,237 @@
+// Prisma Schema for Pulse Clinic: Electronic Medical Booklet Portal using Blockchain & WebAuthn
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+  HOSPITAL_STAFF
+  ADMIN
+}
+
+enum RoleStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REVOKED
+  SUSPENDED
+}
+
+enum AccessStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+  EXPIRED
+}
+
+// 1. HOSPITAL
+model Hospital {
+  id                String   @id @default(uuid())
+  name              String
+  code              String   @unique // e.g. PULSE-ACCRA-01
+  licenseNumber     String?
+  blockchainAddress String?  // Hospital on-chain DID e.g. did:pulse:0x...
+  publicKey         String?  // Master Hospital signing key
+  email             String?
+  phone             String?
+  address           String?
+  city              String?
+  country           String   @default("Ghana")
+  website           String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  userRoles         UserRoleKey[]
+  accessRequests    AccessRequest[]
+  appointments      Appointment[]
+
+  @@map("hospital")
+}
+
+// 2. USER (Master Identity)
+model User {
+  id                    String   @id @default(uuid())
+  email                 String   @unique
+  name                  String
+  masterPublicKey       String   // Master WebAuthn public key (Hex/Base64)
+  masterBlockchainAddress String // Master on-chain DID: did:pulse:0x...
+  credentialId          String?  @unique // WebAuthn credential ID
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Multi-role keypairs (Patient, Doctor, Hospital Staff)
+  roleKeys              UserRoleKey[]
+
+  // Consent & Access requests
+  patientAccessRequests AccessRequest[] @relation("PatientAccessRequests")
+  doctorAccessRequests  AccessRequest[] @relation("DoctorAccessRequests")
+
+  // Appointments
+  patientAppointments   Appointment[]   @relation("PatientAppointments")
+  doctorAppointments    Appointment[]   @relation("DoctorAppointments")
+
+  // Audit Logs
+  patientAuditLogs      AccessAuditLog[] @relation("PatientAuditLogs")
+  actorAuditLogs        AccessAuditLog[] @relation("ActorAuditLogs")
+
+  // Clinical Entries created
+  consultationNotes     ConsultationNote[]
+
+  // Devices & Broadcast Confirmation Tokens
+  devices               UserDevice[]
+
+  @@map("user")
+}
+
+// 8. USER DEVICE (Registered hardware device token for broadcast confirmations)
+model UserDevice {
+  id               String   @id @default(uuid())
+  userId           String
+  deviceToken      String   @unique // Cryptographic device token e.g. dev_tok_9f81...
+  deviceName       String   // e.g. "Windows 11 (Chrome Enclave)"
+  deviceType       String   @default("DESKTOP") // DESKTOP, MOBILE, TABLET
+  pushEndpoint     String?
+  publicKey        String?  // Device-level ephemeral public key
+  ipAddress        String?
+  userAgent        String?
+  isActive         Boolean  @default(true)
+  lastActiveAt     DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  broadcastMessages DeviceBroadcastMessage[]
+
+  @@map("user_device")
+}
+
+// 9. DEVICE BROADCAST MESSAGE (Confirmation alerts sent to user's device)
+model DeviceBroadcastMessage {
+  id               String   @id @default(uuid())
+  deviceId         String
+  userId           String
+  type             String   // e.g. "ACCESS_REQUEST_CONFIRMATION", "ROLE_INVITATION"
+  title            String
+  message          String
+  payload          String?  // JSON metadata (requestId, doctorName, durationHours)
+  status           String   @default("PENDING") // PENDING, CONFIRMED, REJECTED, EXPIRED
+  confirmedAt      DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime @default(now())
+
+  device           UserDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@map("device_broadcast_message")
+}
+
+// 3. USER ROLE KEY (Specific Public Key & Blockchain Identity for each role)
+// When a user signs in, they automatically get a PATIENT role key.
+// When invited by a hospital to be DOCTOR or STAFF, approving it generates a role-specific public/private keypair.
+model UserRoleKey {
+  id                String     @id @default(uuid())
+  userId            String
+  hospitalId        String?
+  role              Role       @default(PATIENT)
+  publicKey         String     // Derived Role Public Key (Hex/Base64)
+  blockchainAddress String     // Role-specific DID / on-chain address
+  status            RoleStatus @default(ACTIVE)
+  department        String?    // e.g. Cardiology, Radiology, Emergency (for staff/doctors)
+  licenseCode       String?    // Medical board license code for doctors
+  invitedAt         DateTime   @default(now())
+  approvedAt        DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hospital          Hospital?  @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, role, hospitalId])
+  @@map("user_role_key")
+}
+
+// 4. ACCESS REQUEST (Consent Management - Blockchain Core)
+model AccessRequest {
+  id                String       @id @default(uuid())
+  patientId         String
+  doctorId          String
+  hospitalId        String?
+  purpose           String       // Clinical purpose for record access
+  durationHours     Int          @default(4)
+  status            AccessStatus @default(PENDING)
+  blockchainTxHash  String?      // On-chain smart contract approval transaction hash
+  requestedAt       DateTime     @default(now())
+  approvedAt        DateTime?
+  expiresAt         DateTime?
+  revokedAt         DateTime?
+  digitalSignature  String?      // Patient WebAuthn signature authorizing access
+
+  patient           User         @relation("PatientAccessRequests", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor            User         @relation("DoctorAccessRequests", fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital          Hospital?    @relation(fields: [hospitalId], references: [id], onDelete: SetNull)
+
+  @@map("access_request")
+}
+
+// 5. ACCESS AUDIT LOG (Immutable Blockchain-anchored record of views & edits)
+model AccessAuditLog {
+  id               String   @id @default(uuid())
+  patientId        String
+  actorId          String
+  actorRole        Role
+  action           String   // e.g. "VIEW_MEDICAL_RECORD", "APPROVE_ACCESS", "REVOKE_ACCESS", "ADD_PRESCRIPTION"
+  resource         String   // e.g. "Dossier Médical", "Lipid Panel", "Consultation Note"
+  blockchainTxHash String   // On-chain block hash
+  blockNumber      Int
+  digitalSignature String   // Actor's cryptographic signature
+  timestamp        DateTime @default(now())
+
+  patient          User     @relation("PatientAuditLogs", fields: [patientId], references: [id], onDelete: Cascade)
+  actor            User     @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@map("access_audit_log")
+}
+
+// 6. CONSULTATION NOTE & CLINICAL EDITS
+model ConsultationNote {
+  id               String   @id @default(uuid())
+  patientId        String
+  doctorId         String
+  diagnosis        String
+  notes            String
+  prescriptions    String?  // JSON string or formatted list of medicines
+  labRequests      String?  // Blood tests, scans, etc.
+  blockchainTxHash String   // On-chain hash of clinical entry
+  digitalSignature String   // Doctor's role key signature
+  createdAt        DateTime @default(now())
+
+  doctor           User     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("consultation_note")
+}
+
+// 7. APPOINTMENT
+model Appointment {
+  id          String   @id @default(uuid())
+  patientId   String
+  doctorId    String?
+  hospitalId  String
+  scheduledAt DateTime
+  status      String   @default("CONFIRMED") // CONFIRMED, COMPLETED, CANCELLED
+  department  String?
+  reason      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  patient     User      @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User?     @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: SetNull)
+  hospital    Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@map("appointment")
+}

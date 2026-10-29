@@ -1,0 +1,92 @@
+# ========================================================
+# Git Ignore for e-medicalbooklet
+# ========================================================
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.suo
+*.user
+*.userosv
+*.sln.docstates
+
+# C++ Build Artifacts & CMake Output
+build/
+build-ksm/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.dir/
+blockchain-core/build/
+ksm-core/build/
+*.exe
+*.obj
+*.o
+*.pdb
+*.ilk
+*.lib
+*.a
+*.exp
+*.slnx
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Ephemeral Runtime Data, Logs, and PID Files
+.run/
+chaindata/
+blockchain-core/chaindata/
+node/chaindata/
+logs/
+node/logs_test/
+*.log
+*.pid
+*.medarch
+*.sqlite
+*.sqlite3
+*.db
+*.dat
+
+# Python Virtual Environments & Bytecode
+__pycache__/
+*/__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+*/.venv/
+venv/
+env/
+*.egg-info/
+dist/
+
+# Node.js & Next.js Build Artifacts & Dependencies
+node_modules/
+*/node_modules/
+.next/
+*/.next/
+out/
+*/out/
+*.tsbuildinfo
+*/tsconfig.tsbuildinfo
+next-env.d.ts
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Secrets & Local Environment Configurations
+.env
+*.env.local
+*.env.development.local
+*.env.test.local
+*.env.production.local
+*.pem
+*.key
+*.crt
+
+# Explicitly Keep Example and Template Configurations
+!.env.example
+!*/.env.example

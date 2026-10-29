@@ -1,0 +1,106 @@
+syntax = "proto3";
+
+package emedical;
+
+// ============================================================================
+// E-Medical Booklet Blockchain Core gRPC IPC Service Definition
+// ============================================================================
+
+
+message InfoRequest {
+    string message = 1;
+}
+message InfoResponse {
+    string message = 1;
+}
+
+service BlockchainCoreService {
+    rpc GetInfo(InfoRequest) returns (InfoResponse);
+}
+// message TransactionRequest {
+//     string schema_type = 1;
+//     string sender_id = 2;
+//     string sender_public_key = 3;
+//     string signer_type = 4;
+//     int64 timestamp = 5;
+//     map<string, string> fields = 6;
+//     string signature = 7;
+//     string co_signer_id = 8;
+//     string co_signature = 9;
+//     string co_signer_public_key = 10;
+//     uint32 channel_id = 11;
+// }
+
+// message TransactionResponse {
+//     bool success = 1;
+//     string tx_id = 2;
+//     string message = 3;
+//     uint64 block_height = 4;
+// }
+
+// message ProposeBlockRequest {
+//     string proposer_id = 1;
+//     uint32 channel_id = 2;
+// }
+
+// message ProposeBlockResponse {
+//     bool success = 1;
+//     uint64 block_height = 2;
+//     string block_hash = 3;
+//     string merkle_root = 4;
+//     int32 transaction_count = 5;
+//     string message = 6;
+// }
+
+// message RecordQueryRequest {
+//     string schema_type = 1;
+//     string target_data_id = 2;
+//     string requester_id = 3;
+//     string purpose = 4;
+//     string signature = 5;
+//     string requester_public_key = 6;
+//     uint32 channel_id = 7;
+//     repeated string ksm_quorum = 8;
+// }
+
+// message RecordQueryResponse {
+//     bool success = 1;
+//     string status = 2;
+//     uint64 block_height = 3;
+//     uint32 tx_order = 4;
+//     string merkle_root = 5;
+//     bool merkle_verified = 6;
+//     map<string, string> fields = 7;
+//     string message = 8;
+// }
+
+// message MerkleProofRequest {
+//     uint64 block_height = 1;
+//     uint32 tx_order = 2;
+//     uint32 channel_id = 3;
+// }
+
+// message MerkleProofResponse {
+//     bool success = 1;
+//     string expected_root = 2;
+//     repeated string proof_steps = 3;
+//     bool is_valid = 4;
+//     string message = 5;
+// }
+
+// message ConfigSyncRequest {
+//     string config_json = 1;
+// }
+
+// message ConfigSyncResponse {
+//     bool success = 1;
+//     string message = 2;
+// }
+
+// service BlockchainCoreService {
+//     rpc SubmitTransaction(TransactionRequest) returns (TransactionResponse);
+//     rpc ProposeBlock(ProposeBlockRequest) returns (ProposeBlockResponse);
+//     rpc QueryRecord(RecordQueryRequest) returns (RecordQueryResponse);
+//     rpc VerifyMerkleProof(MerkleProofRequest) returns (MerkleProofResponse);
+//     rpc SynchronizeConfig(ConfigSyncRequest) returns (ConfigSyncResponse);
+// }
