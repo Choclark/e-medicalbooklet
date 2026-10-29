@@ -27,7 +27,7 @@ import {
 } from "@/lib/webauthn";
 import { registerPatientInTrustedZone } from "@/lib/trustedZone";
 import { clientNodeService } from "@/lib/clientNodeSocket";
-import { DEFAULT_DEMO_USER, ALL_DEMO_CREDENTIALS } from "@/lib/medicalStore";
+import { DEFAULT_DEMO_USER, CHOCLARK_SYSADMIN_USER, ALL_DEMO_CREDENTIALS } from "@/lib/medicalStore";
 
 interface WebAuthnAuthModalProps {
   onAuthenticated: (credential: StoredCredential) => void;
@@ -69,19 +69,28 @@ export default function WebAuthnAuthModal({
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem("pulse_clinic_creds");
+        let list: StoredCredential[] = ALL_DEMO_CREDENTIALS;
         if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStoredCredentials(parsed);
-            return;
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const existingKeys = new Set(
+                parsed.map((c: StoredCredential) => c.id || c.user?.email)
+              );
+              const missing = ALL_DEMO_CREDENTIALS.filter(
+                (d) => !existingKeys.has(d.id) && !existingKeys.has(d.user.email)
+              );
+              list = [...missing, ...parsed];
+            }
+          } catch (e) {
+            console.error(e);
           }
         }
+        setStoredCredentials(list);
+        localStorage.setItem("pulse_clinic_creds", JSON.stringify(list));
       } catch (e) {
         console.error(e);
       }
-      // If none found or single default, populate with all demo profiles
-      setStoredCredentials(ALL_DEMO_CREDENTIALS);
-      localStorage.setItem("pulse_clinic_creds", JSON.stringify(ALL_DEMO_CREDENTIALS));
     }
   }, []);
 

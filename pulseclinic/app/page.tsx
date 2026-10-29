@@ -10,7 +10,12 @@ import WebAuthnAuthModal from "@/components/WebAuthnAuthModal";
 import DeviceBroadcastConfirmationModal from "@/components/DeviceBroadcastConfirmationModal";
 import ClientNodeStatusBadge from "@/components/ClientNodeStatusBadge";
 import { StoredCredential } from "@/lib/webauthn";
-import { DEFAULT_DEMO_USER, ALL_DEMO_CREDENTIALS, getRolesForCredential } from "@/lib/medicalStore";
+import {
+  DEFAULT_DEMO_USER,
+  CHOCLARK_SYSADMIN_USER,
+  ALL_DEMO_CREDENTIALS,
+  getRolesForCredential,
+} from "@/lib/medicalStore";
 import { PortalType } from "@/lib/multiPortalStore";
 import {
   DeviceProfile,
@@ -28,14 +33,14 @@ interface PendingRoleInvitation {
 }
 
 export default function Home() {
-  const [currentUser, setCurrentUser] = useState<StoredCredential | null>(DEFAULT_DEMO_USER);
+  const [currentUser, setCurrentUser] = useState<StoredCredential | null>(CHOCLARK_SYSADMIN_USER);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [storedCredentials, setStoredCredentials] = useState<StoredCredential[]>(ALL_DEMO_CREDENTIALS);
 
   // Multi-Portal Navigation & Role Capabilities
   const [activePortal, setActivePortal] = useState<PortalType>("patient");
   const [availableRoles, setAvailableRoles] = useState<string[]>(() =>
-    getRolesForCredential(DEFAULT_DEMO_USER)
+    getRolesForCredential(CHOCLARK_SYSADMIN_USER)
   );
   const [pendingRoleInvitations, setPendingRoleInvitations] = useState<PendingRoleInvitation[]>([
     {
@@ -90,19 +95,37 @@ export default function Home() {
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem("pulse_clinic_creds");
+        let list: StoredCredential[] = ALL_DEMO_CREDENTIALS;
         if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setStoredCredentials(parsed);
-            const activeId = localStorage.getItem("pulse_clinic_active_user");
-            const matched = parsed.find((c: StoredCredential) => c.id === activeId);
-            if (matched) {
-              setCurrentUser(matched);
-              setAvailableRoles(getRolesForCredential(matched));
+          try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const existingKeys = new Set(
+                parsed.map((c: StoredCredential) => c.id || c.user?.email)
+              );
+              const missing = ALL_DEMO_CREDENTIALS.filter(
+                (d) => !existingKeys.has(d.id) && !existingKeys.has(d.user.email)
+              );
+              list = [...missing, ...parsed];
             }
+          } catch (e) {
+            console.error("Failed to parse stored credentials", e);
           }
+        }
+        localStorage.setItem("pulse_clinic_creds", JSON.stringify(list));
+        setStoredCredentials(list);
+
+        const activeId = localStorage.getItem("pulse_clinic_active_user");
+        const matched = list.find(
+          (c: StoredCredential) => c.id === activeId || c.user?.email === activeId
+        );
+        if (matched) {
+          setCurrentUser(matched);
+          setAvailableRoles(getRolesForCredential(matched));
         } else {
-          localStorage.setItem("pulse_clinic_creds", JSON.stringify(ALL_DEMO_CREDENTIALS));
+          setCurrentUser(CHOCLARK_SYSADMIN_USER);
+          setAvailableRoles(getRolesForCredential(CHOCLARK_SYSADMIN_USER));
+          localStorage.setItem("pulse_clinic_active_user", CHOCLARK_SYSADMIN_USER.id);
         }
       } catch (err) {
         console.error("Failed to parse stored credentials", err);

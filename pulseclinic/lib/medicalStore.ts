@@ -205,6 +205,30 @@ export const DEMO_HOSPITAL_USER: StoredCredential = {
   hospitalName: "Hôpital Central de Yaoundé (HCY)",
 };
 
+// System Administrator Credential (Choclark - Sovereign Platform Admin)
+export const CHOCLARK_SYSADMIN_USER: StoredCredential = {
+  id: "cred-admin-choclark",
+  rawId: "cred-admin-choclark",
+  publicKeyHex: "047c81a290184bfae90182736451092837461092837461092837461092837461092837461092837461092837461092837461092837461092837461092837461092",
+  publicKeyBase64: "BHyBopAYS/rpoYJzZFEpA5KDJ0YQkoN0YQkoN0YQkoN0YQkoN0YQkoN0YQkoN0YQko=",
+  algorithm: "ES256 (ECDSA P-256 / SHA-256)",
+  blockchainAddress: "0x89e24f7b11d4e0c384218841d1aa5683907c1264b",
+  did: "did:pulse:admin:0x89e24f7b11d4e0c384218841d1aa5683907c1264b",
+  user: {
+    id: "usr-choclark-sysadmin",
+    name: "Choclark (System Administrator)",
+    email: "choclark6@gmail.com",
+    role: "admin",
+  },
+  createdAt: "2026-01-01T00:00:00.000Z",
+  counter: 999,
+  transports: ["internal"],
+  type: "webauthn-hardware",
+  roles: ["PATIENT", "DOCTOR", "HOSPITAL_STAFF", "SYSTEM_ADMIN"],
+  hospitalId: "hosp-pulse-national",
+  hospitalName: "National Sovereign Health Infrastructure (MINSANTÉ)",
+};
+
 // System Admin / MINSANTÉ National Health Board Credential (Platform Level)
 export const DEMO_SYSADMIN_USER: StoredCredential = {
   id: "cred-admin-minsante",
@@ -228,6 +252,7 @@ export const DEMO_SYSADMIN_USER: StoredCredential = {
 };
 
 export const ALL_DEMO_CREDENTIALS: StoredCredential[] = [
+  CHOCLARK_SYSADMIN_USER,
   DEFAULT_DEMO_USER,
   DEMO_DOCTOR_USER,
   DEMO_HOSPITAL_USER,
@@ -237,11 +262,19 @@ export const ALL_DEMO_CREDENTIALS: StoredCredential[] = [
 // Helper to reliably extract active roles from a credential
 export function getRolesForCredential(cred?: StoredCredential | null): string[] {
   if (!cred) return ["PATIENT"];
+  const name = cred.user?.name?.toLowerCase() || "";
+  const email = cred.user?.email?.toLowerCase() || "";
+  const role = cred.user?.role?.toLowerCase() || "";
+
+  // Explicit Full System Admin & Cross-Role privileges for Choclark
+  if (email.includes("choclark6@gmail.com") || name.includes("choclark")) {
+    return ["PATIENT", "DOCTOR", "HOSPITAL_STAFF", "SYSTEM_ADMIN"];
+  }
+
   if (cred.roles && Array.isArray(cred.roles) && cred.roles.length > 0) {
     return cred.roles;
   }
-  const name = cred.user?.name?.toLowerCase() || "";
-  const role = cred.user?.role?.toLowerCase() || "";
+
   if (name.includes("martin") || role === "doctor") {
     return ["PATIENT", "DOCTOR"];
   }
